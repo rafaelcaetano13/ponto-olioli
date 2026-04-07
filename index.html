@@ -410,12 +410,6 @@
       <div class="app-body">
         <p class="section-title">Equipe</p>
 
-        <div class="records-card">
-          <p style="font-size:13px;font-weight:600;color:#2a1f1a;margin-bottom:12px;">Funcionários cadastrados</p>
-          <div id="lista-funcionarios"><div class="loading">Carregando...</div></div>
-          <button class="btn-primary" onclick="mostrarFormNovoFunc()" style="background:#f5a623;margin-top:14px;">+ Adicionar funcionário</button>
-        </div>
-
         <div id="form-novo-func" style="display:none;">
           <div class="records-card">
             <p style="font-size:13px;font-weight:600;color:#2a1f1a;margin-bottom:12px;">Novo funcionário</p>
@@ -604,7 +598,7 @@ function editarCadastroAtual() { if (window._editarCadastroAtual) window._editar
 function gerarFolhaPDFAtual() { if (window._gerarFolhaPDFAtual) window._gerarFolhaPDFAtual(); }
 </script>
 
-<!-- FIREBASE -->
+<!-- FIREBASE - v20260407195957 -->
 <script type="module">
 // Module-level state variables
 let modalDia = null;
@@ -2054,8 +2048,214 @@ window._editarCadastroAtual = async function() {
   } catch(e) { showToast('Erro ao carregar dados.', '#c0392b'); }
 };
 
+window._gerarFolhaPDF = async function(id) {
+  showToast('Gerando folha de ponto...', '#2a1f1a');
+  try {
+    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const snap = await getDoc(firestoreDoc(db, 'cadastros', id));
+    if (!snap.exists()) { showToast('Cadastro não encontrado.', '#c0392b'); return; }
+    const func = snap.data();
+
+    const mesInput = prompt('Mês (1-12):', new Date().getMonth() + 1);
+    const anoInput = prompt('Ano:', new Date().getFullYear());
+    if (!mesInput || !anoInput) return;
+
+    const mesNum = parseInt(mesInput);
+    const anoNum = parseInt(anoInput);
+    const firstDay = `${anoNum}-${String(mesNum).padStart(2,'0')}-01`;
+    const lastDayNum = new Date(anoNum, mesNum, 0).getDate();
+    const lastDay = `${anoNum}-${String(mesNum).padStart(2,'0')}-${String(lastDayNum).padStart(2,'0')}`;
+
+    const q = query(
+      collection(db, 'registros'),
+      where('usuario', '==', func.usuario),
+      where('data', '>=', firstDay),
+      where('data', '<=', lastDay)
+    );
+    const recSnap = await getDocs(q);
+    const registros = {};
+    recSnap.forEach(d => {
+      const r = d.data();
+      if (!registros[r.data]) registros[r.data] = [];
+      registros[r.data].push(r);
+    });
+    Object.values(registros).forEach(arr => arr.sort((a,b) => a.timestamp.seconds - b.timestamp.seconds));
+
+    _gerarHTMLFolha(func, anoNum, mesNum, lastDayNum, registros);
+  } catch(e) {
+    console.error('gerarFolhaPDF error:', e);
+    showToast('Erro: ' + (e.code || e.message), '#c0392b');
+  }
+};
+
+function _gerarHTMLFolha(func, ano, mes, totalDias, registros) {
+  const diasSemana = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const mesesNomes = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const EMPRESA = { nome: 'Caetano Representações LTDA', cnpj: '16.731.920/0001-10', codigo: '329', filial: '1' };
+
+  let totalNormalSec = 0, totalNoturnoSec = 0;
+  let rows = '';
+
+  for (let d = 1; d <= totalDias; d++) {
+    const dataStr = `${ano}-${String(mes).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const diaSem = new Date(dataStr + 'T12:00:00').getDay();
+    const dataFmt = `${String(d).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
+    const recs = registros[dataStr] || [];
+    const isDomingo = diaSem === 0;
+
+    let marcacoesHTML = '';
+    let horasCell = '';
+
+    if (isDomingo) {
+      marcacoesHTML = '<td colspan="2" style="text-align:center;color:#888;font-style:italic;border:1px solid #ccc;padding:3px 6px;font-size:11px;">- - - DOMINGO - - -</td>';
+    } else if (!recs.length) {
+      marcacoesHTML = '<td style="border:1px solid #ccc;padding:3px 6px;"></td><td style="border:1px solid #ccc;padding:3px 6px;"></td>';
+    } else {
+      const entradas = recs.filter(r => r.tipo==='entry').map(r => r.hora.slice(0,5)).join('  ');
+      const saidas = recs.filter(r => r.tipo==='exit').map(r => r.hora.slice(0,5)).join('  ');
+      const det = calcDetalhado(recs);
+      totalNormalSec += det.normal;
+      totalNoturnoSec += det.noturno;
+      const totalStr = secsToStr(det.total) || '';
+      const noturnoStr = secsToStr(det.noturno) || '';
+      marcacoesHTML = `<td style="border:1px solid #ccc;padding:3px 8px;font-family:monospace;font-size:11px;">${entradas}</td><td style="border:1px solid #ccc;padding:3px 8px;font-family:monospace;font-size:11px;">${saidas}</td>`;
+      horasCell = noturnoStr ? `${totalStr}<br><small style="color:#e65100;">${noturnoStr} not.</small>` : totalStr;
+    }
+
+    rows += `<tr>
+      <td style="border:1px solid #ccc;padding:3px 6px;font-size:11px;white-space:nowrap;">${dataFmt}<br><span style="font-size:9px;color:#666;">${diasSemana[diaSem].slice(0,3)}</span></td>
+      ${marcacoesHTML}
+      <td style="border:1px solid #ccc;padding:3px 6px;font-size:11px;text-align:center;">${horasCell}</td>
+      <td style="border:1px solid #ccc;padding:3px 6px;width:120px;"></td>
+    </tr>`;
+  }
+
+  const totalNormal = secsToStr(totalNormalSec) || '00h00min';
+  const totalNoturno = secsToStr(totalNoturnoSec) || '00h00min';
+  const totalGeral = secsToStr(totalNormalSec + totalNoturnoSec) || '00h00min';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Folha de Ponto - ${func.nome} - ${mesesNomes[mes]}/${ano}</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:Arial,sans-serif; font-size:12px; padding:15px; }
+h2 { text-align:center; font-size:14px; margin-bottom:3px; }
+h3 { text-align:center; font-size:11px; font-weight:normal; margin-bottom:8px; }
+table { width:100%; border-collapse:collapse; margin-top:8px; }
+th { background:#f0f0f0; border:1px solid #ccc; padding:4px 6px; font-size:11px; text-align:center; }
+.totais { margin-top:14px; border:1px solid #ccc; padding:10px; }
+.totais-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center; }
+.total-item { border:1px solid #ddd; padding:8px; border-radius:4px; }
+.total-label { font-size:10px; color:#666; margin-bottom:4px; }
+.total-value { font-size:16px; font-weight:bold; }
+.assinatura { margin-top:40px; display:flex; justify-content:space-between; }
+.assinatura-linha { border-top:1px solid #000; width:45%; text-align:center; padding-top:4px; font-size:10px; }
+@media print { body { padding:5px; } }
+</style></head><body>
+<h2>${EMPRESA.nome}</h2>
+<h3>Folha Individual de Presença — ${mesesNomes[mes]} ${ano}</h3>
+<div style="font-size:11px;margin-bottom:4px;">
+  <span>Código Empresa: ${EMPRESA.codigo} - Filial: ${EMPRESA.filial}</span>
+  <span style="margin-left:16px;">CNPJ/CPF: ${EMPRESA.cnpj}</span>
+</div>
+<div style="font-size:11px;margin-bottom:2px;">
+  <span>Código: ${func.codigo||''}</span>
+  <span style="margin-left:12px;">Nome: <strong>${func.nome}</strong></span>
+  <span style="margin-left:12px;">Função: ${func.funcao||''}</span>
+  <span style="margin-left:12px;">Dt Admissão: ${func.admissao||''}</span>
+</div>
+<div style="font-size:11px;margin-bottom:8px;">
+  <span>CTPS/Série/UF: ${func.ctps||''}</span>
+  <span style="margin-left:12px;">CPF: ${func.cpf||''}</span>
+  <span style="margin-left:12px;">Matrícula: ${func.matricula||''}</span>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2" style="width:70px;">Data</th>
+      <th colspan="2">Marcações</th>
+      <th rowspan="2" style="width:80px;">Horas Trabalhadas</th>
+      <th rowspan="2" style="width:120px;">Assinatura</th>
+    </tr>
+    <tr><th>Entrada(s)</th><th>Saída(s)</th></tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="totais">
+  <div class="totais-grid">
+    <div class="total-item">
+      <div class="total-label">Horas Diurnas</div>
+      <div class="total-value">${totalNormal}</div>
+    </div>
+    <div class="total-item" style="border-color:#e65100;">
+      <div class="total-label">Horas Noturnas (22h-05h)</div>
+      <div class="total-value" style="color:#e65100;">${totalNoturno}</div>
+    </div>
+    <div class="total-item" style="background:#f5f5f5;">
+      <div class="total-label">Total Geral</div>
+      <div class="total-value">${totalGeral}</div>
+    </div>
+  </div>
+</div>
+<div class="assinatura">
+  <div class="assinatura-linha">Assinatura do Empregado</div>
+  <div class="assinatura-linha">Assinatura do Empregador</div>
+</div>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { showToast('Permita pop-ups para gerar o PDF.', '#c0392b'); return; }
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 800);
+}
+
 window._gerarFolhaPDFAtual = function() {
   if (cadastroAtualId) window._gerarFolhaPDF(cadastroAtualId);
+};
+
+window._salvarCadastro = async function() {
+  const nome = document.getElementById('cad-nome').value.trim();
+  const usuario = document.getElementById('cad-usuario').value.trim();
+  const errEl = document.getElementById('cad-error');
+  if (!nome || !usuario) {
+    errEl.textContent = 'Nome e usuário são obrigatórios.';
+    return;
+  }
+  errEl.textContent = '';
+
+  const dados = {
+    nome,
+    usuario: usuario.toLowerCase(),
+    codigo: document.getElementById('cad-codigo').value.trim(),
+    matricula: document.getElementById('cad-matricula').value.trim(),
+    funcao: document.getElementById('cad-funcao').value.trim(),
+    admissao: document.getElementById('cad-admissao').value.trim(),
+    ctps: document.getElementById('cad-ctps').value.trim(),
+    cpf: document.getElementById('cad-cpf').value.trim(),
+    atualizadoEm: Timestamp.fromDate(new Date())
+  };
+
+  try {
+    if (cadastroEditId) {
+      await updateDoc(firestoreDoc(db, 'cadastros', cadastroEditId), dados);
+      showToast('Cadastro atualizado!', '#2a1f1a');
+      cadastroEditId = null;
+    } else {
+      await addDoc(collection(db, 'cadastros'), dados);
+      showToast('Colaborador cadastrado!', '#2a1f1a');
+    }
+    ['cad-nome','cad-usuario','cad-codigo','cad-matricula','cad-funcao','cad-admissao','cad-ctps','cad-cpf'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    await loadCadastros();
+    showCadastroView('lista');
+    cadastroEditId = null;
+  } catch(e) {
+    console.error('salvarCadastro error:', e);
+    errEl.textContent = 'Erro ao salvar: ' + (e.code || e.message);
+  }
 };
 
 
