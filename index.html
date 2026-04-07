@@ -332,7 +332,81 @@
       </div>
     </div>
 
-    <div id="mgr-tab-funcionarios" style="flex:1; overflow-y:auto; display:none;">
+    <div id="mgr-tab-cadastro" style="flex:1; overflow-y:auto; display:none;">
+      <div class="app-body">
+
+        <!-- Lista de colaboradores -->
+        <div id="cadastro-view-lista">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <p class="section-title" style="margin:0;">Colaboradores</p>
+            <button onclick="mostrarFormCadastro()" style="background:#f5a623;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;">+ Novo</button>
+          </div>
+          <div id="cadastro-lista"></div>
+        </div>
+
+        <!-- Perfil do colaborador -->
+        <div id="cadastro-view-perfil" style="display:none;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <button onclick="voltarListaCadastro()" style="background:none;border:none;font-size:13px;color:#f5a623;cursor:pointer;font-weight:600;">← Voltar</button>
+            <p class="section-title" style="margin:0;" id="perfil-cad-titulo">Colaborador</p>
+          </div>
+          <div class="records-card" id="perfil-cad-dados"></div>
+          <div style="display:flex;gap:10px;margin-top:12px;">
+            <button onclick="editarCadastroAtual()" style="flex:1;padding:12px;background:#2a1f1a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">✎ Editar</button>
+            <button onclick="gerarFolhaPDFAtual()" style="flex:1;padding:12px;background:#f5a623;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">🖨 Gerar Folha</button>
+          </div>
+        </div>
+
+        <!-- Formulário novo/editar -->
+        <div id="cadastro-view-form" style="display:none;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <button onclick="voltarListaCadastro()" style="background:none;border:none;font-size:13px;color:#f5a623;cursor:pointer;font-weight:600;">← Voltar</button>
+            <p class="section-title" style="margin:0;" id="form-cad-titulo">Novo colaborador</p>
+          </div>
+          <div class="records-card">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+              <div class="form-group" style="margin:0;">
+                <label>Nome completo</label>
+                <input type="text" id="cad-nome" placeholder="Nome completo">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Usuário (login)</label>
+                <input type="text" id="cad-usuario" placeholder="ex: Lucas.Luchi">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Código</label>
+                <input type="text" id="cad-codigo" placeholder="ex: 78601">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Matrícula</label>
+                <input type="text" id="cad-matricula" placeholder="ex: 001">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Função</label>
+                <input type="text" id="cad-funcao" placeholder="ex: Chefe de Cozinha">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Data de admissão</label>
+                <input type="text" id="cad-admissao" placeholder="dd/mm/aaaa">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>CTPS/Série/UF</label>
+                <input type="text" id="cad-ctps" placeholder="ex: 1260876/1798/ES">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>CPF</label>
+                <input type="text" id="cad-cpf" placeholder="ex: 126.087.617-98">
+              </div>
+            </div>
+            <button class="btn-primary" onclick="salvarCadastro()" style="background:#f5a623;">Salvar</button>
+            <div class="error-msg" id="cad-error"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="mgr-tab-funcionarios"    <div id="mgr-tab-funcionarios" style="flex:1; overflow-y:auto; display:none;">
       <div class="app-body">
         <p class="section-title">Equipe</p>
 
@@ -438,8 +512,11 @@
     <button class="nav-item" id="mgr-nav-relatorio" onclick="switchMgrTab('relatorio')">
       <span class="nav-icon">📊</span>Relatório
     </button>
+    <button class="nav-item" id="mgr-nav-cadastro" onclick="switchMgrTab('cadastro')">
+      <span class="nav-icon">🗂</span>Colaboradores
+    </button>
     <button class="nav-item" id="mgr-nav-funcionarios" onclick="switchMgrTab('funcionarios')">
-      <span class="nav-icon">👥</span>Equipe
+      <span class="nav-icon">⚙️</span>Config
     </button>
   </div>
 </div>
@@ -513,6 +590,18 @@ function mostrarFormNovoFunc(s) { if (window._mostrarFormNovoFunc) window._mostr
 function gerarPreview() { if (window._gerarPreview) window._gerarPreview(); }
 function adicionarIP() { if (window._adicionarIP) window._adicionarIP(); }
 function removerIP(id) { if (window._removerIP) window._removerIP(id); }
+function salvarCadastro() { if (window._salvarCadastro) window._salvarCadastro(); }
+function editarCadastro(id) { if (window._editarCadastro) window._editarCadastro(id); }
+function gerarFolhaPDF(id) { if (window._gerarFolhaPDF) window._gerarFolhaPDF(id); }
+function abrirDetalheCad(id) { if (window._abrirDetalheCad) window._abrirDetalheCad(id); }
+function abrirFormCadastro(id) { if (window._abrirFormCadastro) window._abrirFormCadastro(id); }
+function toggleEditarCad() { if (window._toggleEditarCad) window._toggleEditarCad(); }
+function voltarListaCad() { if (window._voltarListaCad) window._voltarListaCad(); }
+function mostrarFormCadastro(id) { if (window.mostrarFormCadastro) window.mostrarFormCadastro(id); }
+function voltarListaCadastro() { if (window.voltarListaCadastro) window.voltarListaCadastro(); }
+function verPerfilCadastro(id) { if (window.verPerfilCadastro) window.verPerfilCadastro(id); }
+function editarCadastroAtual() { if (window.editarCadastroAtual) window.editarCadastroAtual(); }
+function gerarFolhaPDFAtual() { if (window.gerarFolhaPDFAtual) window.gerarFolhaPDFAtual(); }
 </script>
 
 <!-- FIREBASE -->
@@ -679,10 +768,24 @@ onAuthStateChanged(auth, async (user) => {
 
 // ---- EMPLOYEE: PUNCH ----
 
-function calcHorasTrabalhadas(records) {
-  // Emparelha entradas com saídas em ordem, usando segundos para precisão
-  let totalSec = 0;
+function secsToStr(totalSec) {
+  if (totalSec <= 0) return null;
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h === 0 && m === 0) return `${String(s).padStart(2,'0')}seg`;
+  return `${String(h).padStart(2,'0')}h${String(m).padStart(2,'0')}min`;
+}
+
+// Returns { total, normal, noturno } in seconds
+// Noturno: 22:00 - 05:00 (adicional noturno)
+function calcDetalhado(records) {
+  const NOTURNO_START = 22 * 3600; // 22:00 em segundos
+  const NOTURNO_END = 5 * 3600;    // 05:00 em segundos
+  let normalSec = 0;
+  let noturnoSec = 0;
   let lastEntry = null;
+
   for (const r of records) {
     if (r.tipo === 'entry') {
       lastEntry = r.hora;
@@ -691,18 +794,50 @@ function calcHorasTrabalhadas(records) {
       const sp = r.hora.split(':').map(Number);
       let entSec = ep[0]*3600 + ep[1]*60 + (ep[2]||0);
       let saiSec = sp[0]*3600 + sp[1]*60 + (sp[2]||0);
-      if (saiSec < entSec) saiSec += 24*3600; // turno passou da meia-noite
-      totalSec += saiSec - entSec;
+      if (saiSec < entSec) saiSec += 24*3600;
+
+      // Walk through each second of the interval and classify
+      // More efficient: calculate intersection with noturno periods
+      // Noturno periods in a 24h+5h window: [22*3600, 29*3600] (22h to next 05h)
+      const periodos = [
+        { ini: NOTURNO_START, fim: 24*3600 + NOTURNO_END } // 22:00 to 05:00 next day
+      ];
+
+      let segNoturno = 0;
+      for (const p of periodos) {
+        const overlap_ini = Math.max(entSec, p.ini);
+        const overlap_fim = Math.min(saiSec, p.fim);
+        if (overlap_fim > overlap_ini) segNoturno += overlap_fim - overlap_ini;
+      }
+
+      // Also check if shift started before midnight in noturno zone
+      // e.g. shift 21:00 to 02:00: noturno = 22:00 to 02:00 = 4h
+      if (entSec < NOTURNO_START) {
+        // might have noturno portion: from 22:00 to saida (if saida > 22:00)
+        const overlap_ini2 = Math.max(entSec, NOTURNO_START);
+        const overlap_fim2 = Math.min(saiSec, 24*3600 + NOTURNO_END);
+        if (overlap_fim2 > overlap_ini2 && overlap_ini2 >= NOTURNO_START) {
+          segNoturno = overlap_fim2 - NOTURNO_START;
+        }
+      }
+
+      const segTotal = saiSec - entSec;
+      noturnoSec += segNoturno;
+      normalSec += segTotal - segNoturno;
       lastEntry = null;
     }
   }
-  if (totalSec <= 0) return null;
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  // If less than 1 minute, show seconds to avoid showing 00h00min
-  if (h === 0 && m === 0) return `${String(s).padStart(2,'0')}seg`;
-  return `${String(h).padStart(2,'0')}h${String(m).padStart(2,'0')}min`;
+
+  return {
+    total: normalSec + noturnoSec,
+    normal: normalSec,
+    noturno: noturnoSec
+  };
+}
+
+function calcHorasTrabalhadas(records) {
+  const d = calcDetalhado(records);
+  return secsToStr(d.total);
 }
 
 function groupByDay(records) {
@@ -997,7 +1132,10 @@ async function loadHistorico(monthStr) {
     const dayRecs = dayGroups[data];
     const entries = dayRecs.filter(r => r.tipo === 'entry').map(r => r.hora);
     const exits = dayRecs.filter(r => r.tipo === 'exit').map(r => r.hora);
-    const total = calcHorasTrabalhadas(dayRecs) || '—';
+    const det = calcDetalhado(dayRecs);
+    const total = secsToStr(det.total) || '—';
+    const normalH = secsToStr(det.normal);
+    const noturnoH = secsToStr(det.noturno);
     const impar = dayRecs.length % 2 !== 0;
     const isToday = data === todayStr();
     const sol = solicitacoesMap[data];
@@ -1019,7 +1157,11 @@ async function loadHistorico(monthStr) {
       <td>${formatDate(data)}${statusHtml ? '<br>' + statusHtml : ''}</td>
       <td class="badge-type-in">${entries.join('<br>') || '—'}</td>
       <td class="badge-type-out">${exits.join('<br>') || '—'}</td>
-      <td style="font-weight:500;">${total}</td>
+      <td style="font-weight:500;font-size:12px;line-height:1.8;">
+        ${normalH ? `<div style="color:#444;">Diurno: ${normalH}</div>` : ''}
+        ${noturnoH ? `<div style="color:#e65100;">Noturno: ${noturnoH}</div>` : ''}
+        <div>${total}</div>
+      </td>
     `;
     tbody.appendChild(tr);
   }
@@ -1120,7 +1262,10 @@ function loadTodayAll() {
           ? `<span class="status-badge status-in">✓ Dentro</span>`
           : `<span class="status-badge status-out">✗ Saiu</span>`;
 
-      const totalHoje = calcHorasTrabalhadas(records);
+      const detHoje = calcDetalhado(records);
+      const totalHoje = secsToStr(detHoje.total);
+      const normalHoje = secsToStr(detHoje.normal);
+      const noturnoHoje = secsToStr(detHoje.noturno);
       const rows = records.map(r =>
         `<tr><td class="${r.tipo==='entry'?'badge-type-in':'badge-type-out'}">${r.tipo==='entry'?'Entrada':'Saída'}</td><td>${r.hora}</td></tr>`
       ).join('') || `<tr><td colspan="2" class="empty-row">Nenhum registro</td></tr>`;
@@ -1132,7 +1277,11 @@ function loadTodayAll() {
             <div class="emp-card-name">${nome}</div>
             <div class="emp-card-status">${statusHtml}</div>
           </div>
-          ${totalHoje ? `<div style="font-size:13px;font-weight:600;color:#2a1f1a;">${totalHoje}</div>` : ''}
+          ${totalHoje ? `<div style="font-size:12px;text-align:right;line-height:1.8;">
+            ${normalHoje ? `<div style="color:#444;">Diurno: <strong>${normalHoje}</strong></div>` : ''}
+            ${noturnoHoje ? `<div style="color:#e65100;">Noturno: <strong>${noturnoHoje}</strong></div>` : ''}
+            <div style="color:#2a1f1a;border-top:1px solid #eee;margin-top:2px;padding-top:2px;">Total: <strong>${totalHoje}</strong></div>
+          </div>` : ''}
         </div>
         <table><thead><tr><th>Tipo</th><th>Horário</th></tr></thead><tbody>${rows}</tbody></table>
       </div>`;
@@ -1180,20 +1329,85 @@ window._loadReport = async function() {
     return;
   }
 
-  result.innerHTML = `<div class="records-card">
-    <h3>${reportData.length} registros encontrados</h3>
-    <table>
-      <thead><tr><th>Funcionário</th><th>Data</th><th>Tipo</th><th>Horário</th></tr></thead>
-      <tbody>
-        ${reportData.map(r => `<tr>
-          <td>${r.nome}</td>
-          <td>${formatDate(r.data)}</td>
-          <td class="${r.tipo==='entry'?'badge-type-in':'badge-type-out'}">${r.tipo==='entry'?'Entrada':'Saída'}</td>
-          <td>${r.hora}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-  </div>`;
+  // Group by employee then by day
+  const byEmp = {};
+  reportData.forEach(r => {
+    if (!byEmp[r.usuario]) byEmp[r.usuario] = { nome: r.nome, days: {} };
+    if (!byEmp[r.usuario].days[r.data]) byEmp[r.usuario].days[r.data] = [];
+    byEmp[r.usuario].days[r.data].push(r);
+  });
+
+  let html = '';
+
+  for (const [usuario, empData] of Object.entries(byEmp)) {
+    const sortedDays = Object.keys(empData.days).sort();
+    let empTotalSec = 0, empNormalSec = 0, empNoturnoSec = 0;
+
+    const rows = sortedDays.map(data => {
+      const recs = empData.days[data].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+      const marcacoes = recs.map(r => r.hora.slice(0,5)).join('  ');
+      const det = calcDetalhado(recs);
+      empTotalSec += det.total;
+      empNormalSec += det.normal;
+      empNoturnoSec += det.noturno;
+
+      const totalStr = secsToStr(det.total) || '—';
+      const normalStr = secsToStr(det.normal);
+      const noturnoStr = secsToStr(det.noturno);
+      const impar = recs.length % 2 !== 0;
+
+      const [y, m, d] = data.split('-');
+      const diasSemana = ['dom','seg','ter','qua','qui','sex','sáb'];
+      const diaSem = diasSemana[new Date(data + 'T12:00:00').getDay()];
+
+      return `<tr style="${impar ? 'background:#fff8e1;' : ''}">
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;white-space:nowrap;">
+          <strong style="font-size:14px;">${d}/${m}</strong>
+          <span style="font-size:11px;color:#888;display:block;">${diaSem}</span>
+        </td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-size:13px;color:#2a1f1a;letter-spacing:1px;">
+          ${impar ? `<span style="color:#e65100;">⚠ </span>` : ''}${marcacoes}
+        </td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;line-height:1.8;text-align:right;">
+          ${normalStr ? `<div style="color:#444;">Diurno: <strong>${normalStr}</strong></div>` : ''}
+          ${noturnoStr ? `<div style="color:#e65100;">Noturno: <strong>${noturnoStr}</strong></div>` : ''}
+          <div style="color:#2a1f1a;font-weight:600;">Total: ${totalStr}</div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const totalEmpStr = secsToStr(empTotalSec) || '—';
+    const normalEmpStr = secsToStr(empNormalSec) || '—';
+    const noturnoEmpStr = secsToStr(empNoturnoSec);
+
+    html += `
+      <div class="records-card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #f0f0f0;">
+          <div class="avatar" style="width:36px;height:36px;font-size:13px;">${initials(empData.nome)}</div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:600;color:#1a1a1a;">${empData.nome}</div>
+            <div style="font-size:12px;color:#888;">${sortedDays.length} dias trabalhados</div>
+          </div>
+          <div style="text-align:right;font-size:12px;line-height:1.8;">
+            <div style="color:#444;">Diurno: <strong>${normalEmpStr}</strong></div>
+            ${noturnoEmpStr ? `<div style="color:#e65100;">Noturno: <strong>${noturnoEmpStr}</strong></div>` : ''}
+            <div style="color:#2a1f1a;font-weight:700;font-size:13px;">Total: ${totalEmpStr}</div>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f9f9f9;">
+              <th style="padding:6px 10px;font-size:11px;color:#888;font-weight:500;text-align:left;border-bottom:1px solid #eee;">Data</th>
+              <th style="padding:6px 10px;font-size:11px;color:#888;font-weight:500;text-align:left;border-bottom:1px solid #eee;">Marcações</th>
+              <th style="padding:6px 10px;font-size:11px;color:#888;font-weight:500;text-align:right;border-bottom:1px solid #eee;">Horas</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  result.innerHTML = html || '<div class="loading">Nenhum registro encontrado.</div>';
 };
 
 window._exportCSV = async function() {
@@ -1227,17 +1441,20 @@ window._exportCSV = async function() {
     });
   } catch(e) {}
 
-  const header = 'Funcionário,Data,Entradas,Saídas,Total Horas,Ponto Corrigido,Motivo\n';
+  const header = 'Funcionário,Data,Entradas,Saídas,Horas Diurnas,Horas Noturnas,Total Horas,Ponto Corrigido,Motivo\n';
   const rows = Object.values(grouped)
     .sort((a,b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0)
     .map(g => {
       const entries = g.records.filter(r=>r.tipo==='entry').map(r=>r.hora).join(' / ');
       const exits = g.records.filter(r=>r.tipo==='exit').map(r=>r.hora).join(' / ');
-      const total = calcHorasTrabalhadas(g.records) || '—';
+      const det = calcDetalhado(g.records);
+      const total = secsToStr(det.total) || '—';
+      const normal = secsToStr(det.normal) || '—';
+      const noturno = secsToStr(det.noturno) || '—';
       const solKey = g.usuario + '|' + g.data;
       const corrigido = solMap[solKey] ? 'Sim' : 'Não';
       const motivo = solMap[solKey] ? `"${solMap[solKey]}"` : '';
-      return `${g.nome},${formatDate(g.data)},${entries},${exits},${total},${corrigido},${motivo}`;
+      return `${g.nome},${formatDate(g.data)},${entries},${exits},${normal},${noturno},${total},${corrigido},${motivo}`;
     }).join('\n');
   const csv = header + rows;
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
@@ -1252,12 +1469,13 @@ window._exportCSV = async function() {
 
 // ---- MANAGER: TABS ----
 window._switchMgrTab = function(tab) {
-  ['hoje','solicitacoes','relatorio','funcionarios'].forEach(t => {
+  ['hoje','solicitacoes','relatorio','cadastro','funcionarios'].forEach(t => {
     document.getElementById(`mgr-tab-${t}`).style.display = t===tab?'block':'none';
     document.getElementById(`mgr-nav-${t}`).classList.toggle('active', t===tab);
   });
   if (tab==='hoje') loadTodayAll();
   if (tab==='solicitacoes') loadSolicitacoes();
+  if (tab==='cadastro') loadCadastros();
   if (tab==='funcionarios') initFuncionarios();
   if (tab==='funcionarios') {
     renderListaIPs();
