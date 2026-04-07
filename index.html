@@ -597,11 +597,11 @@ function abrirDetalheCad(id) { if (window._abrirDetalheCad) window._abrirDetalhe
 function abrirFormCadastro(id) { if (window._abrirFormCadastro) window._abrirFormCadastro(id); }
 function toggleEditarCad() { if (window._toggleEditarCad) window._toggleEditarCad(); }
 function voltarListaCad() { if (window._voltarListaCad) window._voltarListaCad(); }
-function mostrarFormCadastro(id) { if (window.mostrarFormCadastro) window.mostrarFormCadastro(id); }
-function voltarListaCadastro() { if (window.voltarListaCadastro) window.voltarListaCadastro(); }
-function verPerfilCadastro(id) { if (window.verPerfilCadastro) window.verPerfilCadastro(id); }
-function editarCadastroAtual() { if (window.editarCadastroAtual) window.editarCadastroAtual(); }
-function gerarFolhaPDFAtual() { if (window.gerarFolhaPDFAtual) window.gerarFolhaPDFAtual(); }
+function mostrarFormCadastro(id) { if (window._mostrarFormCadastro) window._mostrarFormCadastro(id); }
+function voltarListaCadastro() { if (window._voltarListaCadastro) window._voltarListaCadastro(); }
+function verPerfilCadastro(id) { if (window._verPerfilCadastro) window._verPerfilCadastro(id); }
+function editarCadastroAtual() { if (window._editarCadastroAtual) window._editarCadastroAtual(); }
+function gerarFolhaPDFAtual() { if (window._gerarFolhaPDFAtual) window._gerarFolhaPDFAtual(); }
 </script>
 
 <!-- FIREBASE -->
@@ -1475,7 +1475,7 @@ window._switchMgrTab = function(tab) {
   });
   if (tab==='hoje') loadTodayAll();
   if (tab==='solicitacoes') loadSolicitacoes();
-  if (tab==='cadastro') loadCadastros();
+  if (tab==='cadastro') { showCadastroView('lista'); loadCadastros(); }
   if (tab==='funcionarios') initFuncionarios();
   if (tab==='funcionarios') {
     renderListaIPs();
@@ -1950,6 +1950,112 @@ window._removerIP = async function(id) {
     showToast('Rede removida.', '#2a1f1a');
     renderListaIPs();
   } catch(e) { showToast('Erro ao remover.', '#c0392b'); }
+};
+
+
+// ---- CADASTRO FUNCTIONS ----
+let cadastroAtualId = null;
+let cadastroEditId = null;
+
+async function loadCadastros() {
+  const lista = document.getElementById('cadastro-lista');
+  if (!lista) return;
+  lista.innerHTML = '<div class="loading">Carregando...</div>';
+  try {
+    const snap = await getDocs(collection(db, 'cadastros'));
+    const items = [];
+    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+
+    if (!items.length) {
+      lista.innerHTML = '<p style="color:#bbb;font-size:13px;text-align:center;padding:2rem 0;">Nenhum colaborador cadastrado ainda.<br>Clique em + Novo para adicionar.</p>';
+      return;
+    }
+
+    lista.innerHTML = items.map(f => `
+      <div onclick="verPerfilCadastro('${f.id}')" class="emp-card" style="cursor:pointer;margin-bottom:10px;">
+        <div class="emp-card-header">
+          <div class="avatar" style="width:40px;height:40px;font-size:14px;">${initials(f.nome)}</div>
+          <div style="flex:1;">
+            <div class="emp-card-name">${f.nome}</div>
+            <div class="emp-card-status" style="color:#888;">${f.funcao || '—'} ${f.admissao ? '· ' + f.admissao : ''}</div>
+          </div>
+          <span style="color:#f5a623;font-size:20px;">›</span>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    lista.innerHTML = '<div class="loading">Erro ao carregar.</div>';
+    console.error('loadCadastros error:', e);
+  }
+}
+
+function showCadastroView(view) {
+  ['lista','perfil','form'].forEach(v => {
+    const el = document.getElementById(`cadastro-view-${v}`);
+    if (el) el.style.display = v === view ? 'block' : 'none';
+  });
+}
+
+window._mostrarFormCadastro = function(editId) {
+  cadastroEditId = editId || null;
+  document.getElementById('form-cad-titulo').textContent = editId ? 'Editar colaborador' : 'Novo colaborador';
+  if (!editId) {
+    ['cad-nome','cad-usuario','cad-codigo','cad-matricula','cad-funcao','cad-admissao','cad-ctps','cad-cpf'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  }
+  showCadastroView('form');
+};
+
+window._voltarListaCadastro = function() {
+  cadastroEditId = null;
+  cadastroAtualId = null;
+  showCadastroView('lista');
+  loadCadastros();
+};
+
+window._verPerfilCadastro = async function(id) {
+  cadastroAtualId = id;
+  try {
+    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const snap = await getDoc(firestoreDoc(db, 'cadastros', id));
+    if (!snap.exists()) return;
+    const f = snap.data();
+    document.getElementById('perfil-cad-titulo').textContent = f.nome;
+    document.getElementById('perfil-cad-dados').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        ${[['Nome',f.nome],['Usuário',f.usuario],['Código',f.codigo],['Matrícula',f.matricula],
+           ['Função',f.funcao],['Admissão',f.admissao],['CTPS/Série/UF',f.ctps],['CPF',f.cpf]]
+          .map(([label,val]) => val ? `<div><div style="font-size:11px;color:#888;margin-bottom:3px;">${label}</div><div style="font-size:14px;font-weight:500;color:#1a1a1a;">${val}</div></div>` : '')
+          .join('')}
+      </div>`;
+    showCadastroView('perfil');
+  } catch(e) { showToast('Erro ao carregar.', '#c0392b'); }
+};
+
+window._editarCadastroAtual = async function() {
+  if (!cadastroAtualId) return;
+  try {
+    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const snap = await getDoc(firestoreDoc(db, 'cadastros', cadastroAtualId));
+    const f = snap.data();
+    document.getElementById('cad-nome').value = f.nome || '';
+    document.getElementById('cad-usuario').value = f.usuario || '';
+    document.getElementById('cad-codigo').value = f.codigo || '';
+    document.getElementById('cad-matricula').value = f.matricula || '';
+    document.getElementById('cad-funcao').value = f.funcao || '';
+    document.getElementById('cad-admissao').value = f.admissao || '';
+    document.getElementById('cad-ctps').value = f.ctps || '';
+    document.getElementById('cad-cpf').value = f.cpf || '';
+    cadastroEditId = cadastroAtualId;
+    document.getElementById('form-cad-titulo').textContent = 'Editar colaborador';
+    showCadastroView('form');
+  } catch(e) { showToast('Erro ao carregar dados.', '#c0392b'); }
+};
+
+window._gerarFolhaPDFAtual = function() {
+  if (cadastroAtualId) window._gerarFolhaPDF(cadastroAtualId);
 };
 
 
