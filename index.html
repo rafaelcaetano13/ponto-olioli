@@ -484,36 +484,35 @@
 
 <script>
 // Bridge: expose module functions to global onclick handlers
+// Use _fn prefix on window to avoid infinite recursion
 document.addEventListener('DOMContentLoaded', function() {
-  // These will be set by the module once it loads
-  // Using event delegation as fallback
   document.getElementById('login-pass').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && window.doLogin) window.doLogin();
+    if (e.key === 'Enter' && window._doLogin) window._doLogin();
   });
 });
-function doLogin() { if (window.doLogin) window.doLogin(); }
-function doLogout() { if (window.doLogout) window.doLogout(); }
-function togglePass() { if (window.togglePass) window.togglePass(); }
-function punch(t) { if (window.punch) window.punch(t); }
-function switchEmpTab(t) { if (window.switchEmpTab) window.switchEmpTab(t); }
-function switchMgrTab(t) { if (window.switchMgrTab) window.switchMgrTab(t); }
-function loadReport() { if (window.loadReport) window.loadReport(); }
-function exportCSV() { if (window.exportCSV) window.exportCSV(); }
-function changePassword() { if (window.changePassword) window.changePassword(); }
-function mgrResetPassword() { if (window.mgrResetPassword) window.mgrResetPassword(); }
-function abrirModal(d) { if (window.abrirModal) window.abrirModal(d); }
-function fecharModal() { if (window.fecharModal) window.fecharModal(); }
-function enviarSolicitacao() { if (window.enviarSolicitacao) window.enviarSolicitacao(); }
-function responderSolicitacao(id, s) { if (window.responderSolicitacao) window.responderSolicitacao(id, s); }
-function selecionarBatida(i) { if (window.selecionarBatida) window.selecionarBatida(i); }
-function adicionarBatidaSolicitacao() { if (window.adicionarBatidaSolicitacao) window.adicionarBatidaSolicitacao(); }
-function toggleField(a, b) { if (window.toggleField) window.toggleField(a, b); }
-function gerarInstrucoes() { if (window.gerarInstrucoes) window.gerarInstrucoes(); }
-function confirmarCadastro() { if (window.confirmarCadastro) window.confirmarCadastro(); }
-function mostrarFormNovoFunc(s) { if (window.mostrarFormNovoFunc) window.mostrarFormNovoFunc(s); }
-function gerarPreview() { if (window.gerarPreview) window.gerarPreview(); }
-function adicionarIP() { if (window.adicionarIP) window.adicionarIP(); }
-function removerIP(id) { if (window.removerIP) window.removerIP(id); }
+function doLogin() { if (window._doLogin) window._doLogin(); }
+function doLogout() { if (window._doLogout) window._doLogout(); }
+function togglePass() { if (window._togglePass) window._togglePass(); }
+function punch(t) { if (window._punch) window._punch(t); }
+function switchEmpTab(t) { if (window._switchEmpTab) window._switchEmpTab(t); }
+function switchMgrTab(t) { if (window._switchMgrTab) window._switchMgrTab(t); }
+function loadReport() { if (window._loadReport) window._loadReport(); }
+function exportCSV() { if (window._exportCSV) window._exportCSV(); }
+function changePassword() { if (window._changePassword) window._changePassword(); }
+function mgrResetPassword() { if (window._mgrResetPassword) window._mgrResetPassword(); }
+function abrirModal(d) { if (window._abrirModal) window._abrirModal(d); }
+function fecharModal() { if (window._fecharModal) window._fecharModal(); }
+function enviarSolicitacao() { if (window._enviarSolicitacao) window._enviarSolicitacao(); }
+function responderSolicitacao(id, s) { if (window._responderSolicitacao) window._responderSolicitacao(id, s); }
+function selecionarBatida(i) { if (window._selecionarBatida) window._selecionarBatida(i); }
+function adicionarBatidaSolicitacao() { if (window._adicionarBatidaSolicitacao) window._adicionarBatidaSolicitacao(); }
+function toggleField(a, b) { if (window._toggleField) window._toggleField(a, b); }
+function gerarInstrucoes() { if (window._gerarInstrucoes) window._gerarInstrucoes(); }
+function confirmarCadastro() { if (window._confirmarCadastro) window._confirmarCadastro(); }
+function mostrarFormNovoFunc(s) { if (window._mostrarFormNovoFunc) window._mostrarFormNovoFunc(s); }
+function gerarPreview() { if (window._gerarPreview) window._gerarPreview(); }
+function adicionarIP() { if (window._adicionarIP) window._adicionarIP(); }
+function removerIP(id) { if (window._removerIP) window._removerIP(id); }
 </script>
 
 <!-- FIREBASE -->
@@ -608,7 +607,7 @@ function updateClock(clockId, dateId) {
 }
 
 // ---- LOGIN ----
-window.doLogin = async function() {
+window._doLogin = async function() {
   const userInput = document.getElementById('login-user').value.trim().toLowerCase();
   const passInput = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-error');
@@ -626,7 +625,7 @@ window.doLogin = async function() {
 
 
 
-window.doLogout = async function() {
+window._doLogout = async function() {
   await signOut(auth);
 };
 
@@ -832,7 +831,7 @@ async function loadTodayStatus() {
   }
 }
 
-window.punch = async function punch(tipo) {
+window._punch = async function punch(tipo) {
   const username = Object.keys(USER_MAP).find(k => USER_MAP[k].email === currentUser.email);
   const now = new Date();
   const hora = now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
@@ -1027,7 +1026,7 @@ async function loadHistorico(monthStr) {
 }
 
 // ---- EMPLOYEE: TABS ----
-window.switchEmpTab = function(tab) {
+window._switchEmpTab = function(tab) {
   ['ponto','historico','perfil'].forEach(t => {
     document.getElementById(`emp-tab-${t}`).style.display = t===tab?'block':'none';
     document.getElementById(`nav-${t}`).classList.toggle('active', t===tab);
@@ -1047,7 +1046,7 @@ function loadPerfil() {
   document.getElementById('pass-error').textContent = '';
 }
 
-window.changePassword = async function() {
+window._changePassword = async function() {
   const atual = document.getElementById('pass-atual').value;
   const nova = document.getElementById('pass-nova').value;
   const confirma = document.getElementById('pass-confirma').value;
@@ -1076,7 +1075,7 @@ window.changePassword = async function() {
   }
 };
 
-window.toggleField = function(inputId, btnId) {
+window._toggleField = function(inputId, btnId) {
   const inp = document.getElementById(inputId);
   const btn = document.getElementById(btnId);
   if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
@@ -1151,7 +1150,7 @@ function setDefaultDates() {
   if (toEl) toEl.value = now.toISOString().slice(0,10);
 }
 
-window.loadReport = async function() {
+window._loadReport = async function() {
   const from = document.getElementById('filter-from').value;
   const to = document.getElementById('filter-to').value;
   const empFilter = document.getElementById('filter-emp').value;
@@ -1197,7 +1196,7 @@ window.loadReport = async function() {
   </div>`;
 };
 
-window.exportCSV = async function() {
+window._exportCSV = async function() {
   if (!reportData.length) { showToast('Busque os registros primeiro.', '#c0392b'); return; }
 
   // Group by employee + day
@@ -1252,7 +1251,7 @@ window.exportCSV = async function() {
 };
 
 // ---- MANAGER: TABS ----
-window.switchMgrTab = function(tab) {
+window._switchMgrTab = function(tab) {
   ['hoje','solicitacoes','relatorio','funcionarios'].forEach(t => {
     document.getElementById(`mgr-tab-${t}`).style.display = t===tab?'block':'none';
     document.getElementById(`mgr-nav-${t}`).classList.toggle('active', t===tab);
@@ -1269,7 +1268,7 @@ window.switchMgrTab = function(tab) {
   }
 };
 
-window.mgrResetPassword = async function() {
+window._mgrResetPassword = async function() {
   const empEmail = document.getElementById('mgr-emp-select').value;
   const nova = document.getElementById('mgr-nova-senha').value;
   const confirma = document.getElementById('mgr-confirma-senha').value;
@@ -1318,7 +1317,7 @@ function nomeParaEmail(nome) {
 }
 
 
-window.mostrarFormNovoFunc = function(show) {
+window._mostrarFormNovoFunc = function(show) {
   if (show === undefined) show = true;
   document.getElementById('form-novo-func').style.display = show ? 'block' : 'none';
   if (show) {
@@ -1328,7 +1327,7 @@ window.mostrarFormNovoFunc = function(show) {
   }
 };
 
-window.gerarInstrucoes = function() {
+window._gerarInstrucoes = function() {
   const nome = document.getElementById('novo-nome').value.trim();
   const senha = document.getElementById('novo-senha').value;
   const partes = nome.split(' ').filter(p => p.length > 0);
@@ -1340,7 +1339,7 @@ window.gerarInstrucoes = function() {
   document.getElementById('func-instrucoes').style.display = 'block';
 };
 
-window.confirmarCadastro = async function() {
+window._confirmarCadastro = async function() {
   const nome = document.getElementById('novo-nome').value.trim();
   const usuario = nomeParaUsuario(nome);
   const email = nomeParaEmail(nome);
@@ -1371,14 +1370,14 @@ async function initFuncionarios() {
   await renderListaIPs();
 }
 
-window.gerarPreview = function() {
+window._gerarPreview = function() {
   const nome = document.getElementById('novo-nome').value;
   const usuario = nomeParaUsuario(nome);
   document.getElementById('preview-usuario').textContent = usuario || '—';
   document.getElementById('preview-email').textContent = nomeParaEmail(nome) || '—';
 };
 
-window.gerarInstrucoes = function() {
+window._gerarInstrucoes = function() {
   const nome = document.getElementById('novo-nome').value.trim();
   const senha = document.getElementById('novo-senha').value;
   if (!nome || nome.trim().split(/\s+/).length < 2) {
@@ -1394,7 +1393,7 @@ window.gerarInstrucoes = function() {
   renderListaFuncionarios();
 };
 
-window.abrirModal = async function(data) {
+window._abrirModal = async function(data) {
   modalDia = data;
   modalBatidaSelecionada = null;
   solicitacoesAdicionais = [];
@@ -1439,7 +1438,7 @@ function renderModalBatidas() {
   `).join('');
 }
 
-window.selecionarBatida = function(idx) {
+window._selecionarBatida = function(idx) {
   modalBatidaSelecionada = idx;
   const r = modalBatidasDia[idx];
   // Highlight selected
@@ -1451,7 +1450,7 @@ window.selecionarBatida = function(idx) {
   document.getElementById('modal-alterar-section').style.display = 'block';
 };
 
-window.adicionarBatidaSolicitacao = function() {
+window._adicionarBatidaSolicitacao = function() {
   const tipo = document.getElementById('novo-tipo').value;
   const horario = document.getElementById('novo-horario').value;
   if (!tipo || !horario) { showToast('Selecione o tipo e o horário.', '#c0392b'); return; }
@@ -1472,12 +1471,12 @@ window.adicionarBatidaSolicitacao = function() {
     solicitacoesAdicionais.map(a => `${a.tipo==='entry'?'Entrada':'Saída'} às ${a.horario}`).join(', ');
 };
 
-window.fecharModal = function() {
+window._fecharModal = function() {
   document.getElementById('correcao-modal').style.display = 'none';
   modalDia = null;
 };
 
-window.enviarSolicitacao = async function() {
+window._enviarSolicitacao = async function() {
   const motivo = document.getElementById('modal-motivo').value.trim();
   const temAlteracao = modalBatidaSelecionada !== null;
   const temAdicoes = solicitacoesAdicionais.length > 0;
@@ -1565,7 +1564,7 @@ async function loadSolicitacoes() {
   }
 }
 
-window.responderSolicitacao = async function(id, status) {
+window._responderSolicitacao = async function(id, status) {
   try {
     // Fetch solicitacao directly from Firestore by id
     const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
@@ -1711,7 +1710,7 @@ async function verificarIP() {
   }
 }
 
-window.adicionarIP = async function() {
+window._adicionarIP = async function() {
   const nome = document.getElementById('novo-ip-nome').value.trim();
   const ip = document.getElementById('novo-ip-valor').value.trim();
   if (!nome || !ip) { showToast('Preencha o nome e o IP.', '#c0392b'); return; }
@@ -1724,7 +1723,7 @@ window.adicionarIP = async function() {
   } catch(e) { showToast('Erro ao adicionar.', '#c0392b'); }
 };
 
-window.removerIP = async function(id) {
+window._removerIP = async function(id) {
   try {
     const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
     await deleteDoc(firestoreDoc(db, 'ips_autorizados', id));
@@ -1734,7 +1733,7 @@ window.removerIP = async function(id) {
 };
 
 
-window.togglePass = function() {
+window._togglePass = function() {
   const inp = document.getElementById('login-pass');
   const btn = document.getElementById('btn-show-pass');
   if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
