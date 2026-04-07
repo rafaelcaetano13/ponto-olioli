@@ -1665,6 +1665,8 @@ async function renderListaIPs() {
   const fixos = [
     { nome: 'Minha Casa', ip: '181.213.70.37', fixo: true },
     { nome: 'Restaurante', ip: '45.227.123.197', fixo: true },
+    { nome: 'Cherne 1', ip: '162.120.185.214', fixo: true },
+    { nome: 'Cherne 2', ip: '177.206.28.140', fixo: true },
   ];
   let extras = [];
   try {
@@ -1689,7 +1691,7 @@ async function verificarIP() {
     const res = await fetch('https://api.ipify.org?format=json');
     const data = await res.json();
     const ipAtual = data.ip;
-    const fixos = ['181.213.70.37', '45.227.123.197'];
+    const fixos = ['181.213.70.37', '45.227.123.197', '162.120.185.214', '177.206.28.140'];
     let extras = [];
     try {
       const snap = await getDocs(collection(db, 'ips_autorizados'));
