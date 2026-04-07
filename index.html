@@ -518,6 +518,19 @@ function removerIP(id) { if (window.removerIP) window.removerIP(id); }
 
 <!-- FIREBASE -->
 <script type="module">
+// Module-level state variables
+let modalDia = null;
+let modalBatidasDia = [];
+let modalBatidaSelecionada = null;
+let solicitacoesAdicionais = [];
+let currentUser = null;
+currentUserData = null;
+let punchProcessing = false;
+let unsubscribeTodayAll = null;
+let clockInterval = null;
+let currentHistMonth = null;
+let reportData = [];
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, where, getDocs, onSnapshot, Timestamp, doc as firestoreDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -543,11 +556,11 @@ const USER_MAP = {
   'rafael.ferreira':  { email: 'rafael@olioli.app',          role: 'employee', name: 'Rafael Ferreira' },
 };
 
-let currentUser = null;
-let currentUserData = null;
-let reportData = [];
-let clockInterval = null;
-let currentHistMonth = null;
+currentUser = null;
+currentUserData = null;
+reportData = [];
+clockInterval = null;
+currentHistMonth = null;
 
 // ---- HELPERS ----
 function showToast(msg, color) {
@@ -1071,7 +1084,7 @@ window.toggleField = function(inputId, btnId) {
 };
 
 // ---- MANAGER: TODAY ----
-let unsubscribeTodayAll = null;
+unsubscribeTodayAll = null;
 
 function loadTodayAll() {
   const today = todayStr();
