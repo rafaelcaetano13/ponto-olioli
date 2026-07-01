@@ -515,6 +515,39 @@
   </div>
 </div>
 
+<div id="mgr-punch-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-height:90vh;overflow-y:auto;">
+    <h3 id="mgr-punch-titulo">Editar ponto</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:12px;" id="mgr-punch-info"></p>
+
+    <p style="font-size:12px;font-weight:600;color:#444;margin-bottom:6px;">Batidas atuais <span style="color:#888;font-weight:400;">(toque para alterar)</span>:</p>
+    <div id="mgr-punch-batidas" style="background:#f9f9f9;border-radius:10px;padding:6px 10px;margin-bottom:10px;font-size:13px;min-height:40px;"></div>
+
+    <div id="mgr-punch-alterar" style="display:none;background:#fff3e0;border-radius:10px;padding:10px;margin-bottom:10px;border:1px solid #ffe082;">
+      <p style="font-size:12px;font-weight:600;color:#e65100;margin-bottom:8px;" id="mgr-punch-alterar-label">Novo horário:</p>
+      <input type="time" id="mgr-punch-novo-horario" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:10px;font-size:14px;margin-bottom:8px;">
+      <button onclick="aplicarAlteracaoMgr()" style="width:100%;padding:10px;background:#2a1f1a;color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:13px;">✓ Aplicar alteração</button>
+    </div>
+
+    <div style="background:#f9f9f9;border-radius:10px;padding:10px;margin-bottom:10px;">
+      <p style="font-size:12px;font-weight:600;color:#444;margin-bottom:8px;">Adicionar nova batida:</p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="mgr-novo-tipo" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;background:#fff;">
+          <option value="">Tipo</option>
+          <option value="entry">Entrada</option>
+          <option value="exit">Saída</option>
+        </select>
+        <input type="time" id="mgr-novo-horario" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
+        <button onclick="adicionarPontoMgr()" style="padding:8px 14px;background:#f5a623;border:none;border-radius:8px;color:#fff;font-weight:600;cursor:pointer;font-size:13px;">+</button>
+      </div>
+    </div>
+
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="fecharMgrPunchModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div id="correcao-modal" class="modal-overlay" style="display:none;">
   <div class="modal-box" style="max-height:90vh;overflow-y:auto;">
     <h3 id="modal-titulo">Solicitar correção de ponto</h3>
@@ -596,6 +629,11 @@ function voltarListaCadastro() { if (window._voltarListaCadastro) window._voltar
 function verPerfilCadastro(id) { if (window._verPerfilCadastro) window._verPerfilCadastro(id); }
 function editarCadastroAtual() { if (window._editarCadastroAtual) window._editarCadastroAtual(); }
 function gerarFolhaPDFAtual() { if (window._gerarFolhaPDFAtual) window._gerarFolhaPDFAtual(); }
+function abrirMgrPunchModal(u,n,d) { if (window._abrirMgrPunchModal) window._abrirMgrPunchModal(u,n,d); }
+function selecionarMgrPunch(i) { if (window.selecionarMgrPunch) window.selecionarMgrPunch(i); }
+function aplicarAlteracaoMgr() { if (window.aplicarAlteracaoMgr) window.aplicarAlteracaoMgr(); }
+function adicionarPontoMgr() { if (window.adicionarPontoMgr) window.adicionarPontoMgr(); }
+function fecharMgrPunchModal() { if (window.fecharMgrPunchModal) window.fecharMgrPunchModal(); }
 </script>
 
 <!-- FIREBASE - v20260407195957 -->
@@ -1123,7 +1161,7 @@ async function loadHistorico(monthStr) {
   } catch(e) {}
 
   for (const data of sortedDays) {
-    const dayRecs = dayGroups[data];
+    const dayRecs = dayGroups[data] || [];
     const entries = dayRecs.filter(r => r.tipo === 'entry').map(r => r.hora);
     const exits = dayRecs.filter(r => r.tipo === 'exit').map(r => r.hora);
     const det = calcDetalhado(dayRecs);
@@ -1145,18 +1183,50 @@ async function loadHistorico(monthStr) {
     const podeCorrigir = !isToday && (!sol || sol.status === 'recusada');
     if (podeCorrigir) statusHtml += `<button class="btn-correcao" onclick="abrirModal('${data}')">✎ Solicitar correção</button>`;
 
+    const diaSem = new Date(data + 'T12:00:00').getDay();
+    const diasNomes = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    const diaNome = diasNomes[diaSem];
+    const isDomingo = diaSem === 0;
+    const isSegunda = diaSem === 1;
+    const diaFolga = isDomingo || isSegunda;
+    const semPonto = dayRecs.length === 0;
+    const deveriaTerPonto = !diaFolga && !isToday;
+
+    // Add aviso for days without punches that should have them
+    if (deveriaTerPonto && semPonto) {
+      statusHtml += `<span class="aviso-impar">⚠ Sem registro</span>`;
+      const podeCorrigirVazio = !sol || sol.status === 'recusada';
+      if (podeCorrigirVazio) {
+        statusHtml += `<button class="btn-correcao" onclick="abrirModal('${data}')">+ Adicionar ponto</button>`;
+      }
+    }
+
     const tr = document.createElement('tr');
     if (impar && !isToday) tr.classList.add('dia-impar');
-    tr.innerHTML = `
-      <td>${formatDate(data)}${statusHtml ? '<br>' + statusHtml : ''}</td>
-      <td class="badge-type-in">${entries.join('<br>') || '—'}</td>
-      <td class="badge-type-out">${exits.join('<br>') || '—'}</td>
-      <td style="font-weight:500;font-size:12px;line-height:1.8;">
-        ${normalH ? `<div style="color:#444;">Diurno: ${normalH}</div>` : ''}
-        ${noturnoH ? `<div style="color:#e65100;">Noturno: ${noturnoH}</div>` : ''}
-        <div>${total}</div>
-      </td>
-    `;
+    if (deveriaTerPonto && semPonto) tr.style.background = '#fce4ec';
+    if (diaFolga) tr.style.background = '#f5f5f5';
+
+    const dataCell = `<div style="font-size:13px;font-weight:500;">${formatDate(data)}</div>
+      <div style="font-size:11px;color:#888;">${diaNome}${diaFolga ? ' — folga' : ''}</div>
+      ${statusHtml ? '<div style="margin-top:4px;">' + statusHtml + '</div>' : ''}`;
+
+    if (diaFolga) {
+      tr.innerHTML = `
+        <td style="padding:8px 6px;">${dataCell}</td>
+        <td colspan="3" style="text-align:center;color:#bbb;font-size:12px;font-style:italic;">— Folga —</td>
+      `;
+    } else {
+      tr.innerHTML = `
+        <td style="padding:8px 6px;">${dataCell}</td>
+        <td class="badge-type-in">${entries.join('<br>') || '<span style="color:#bbb;">—</span>'}</td>
+        <td class="badge-type-out">${exits.join('<br>') || '<span style="color:#bbb;">—</span>'}</td>
+        <td style="font-weight:500;font-size:12px;line-height:1.8;">
+          ${normalH ? `<div style="color:#444;">Diurno: ${normalH}</div>` : ''}
+          ${noturnoH ? `<div style="color:#e65100;">Noturno: ${noturnoH}</div>` : ''}
+          ${!semPonto ? `<div>${total}</div>` : ''}
+        </td>
+      `;
+    }
     tbody.appendChild(tr);
   }
 }
@@ -1339,7 +1409,7 @@ window._loadReport = async function() {
 
     const rows = sortedDays.map(data => {
       const recs = empData.days[data].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
-      const marcacoes = recs.map(r => r.hora.slice(0,5)).join('  ');
+      const marcacoes = recs.length ? recs.map(r => r.hora.slice(0,5)).join('  ') : '—';
       const det = calcDetalhado(recs);
       empTotalSec += det.total;
       empNormalSec += det.normal;
@@ -1361,6 +1431,7 @@ window._loadReport = async function() {
         </td>
         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-size:13px;color:#2a1f1a;letter-spacing:1px;">
           ${impar ? `<span style="color:#e65100;">⚠ </span>` : ''}${marcacoes}
+          <button onclick="abrirMgrPunchModal('${usuario}','${empData.nome}','${data}')" style="margin-left:8px;background:none;border:1px solid #f5a623;color:#f5a623;border-radius:6px;padding:2px 7px;font-size:11px;cursor:pointer;">✎</button>
         </td>
         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;line-height:1.8;text-align:right;">
           ${normalStr ? `<div style="color:#444;">Diurno: <strong>${normalStr}</strong></div>` : ''}
@@ -1944,6 +2015,123 @@ window._removerIP = async function(id) {
     showToast('Rede removida.', '#2a1f1a');
     renderListaIPs();
   } catch(e) { showToast('Erro ao remover.', '#c0392b'); }
+};
+
+
+// ---- GERENTE: EDIÇÃO DIRETA DE PONTOS ----
+let mgrPunchData = null; // { usuario, nome, data, registros[] }
+let mgrPunchSelecionado = null; // index of selected punch
+
+window._abrirMgrPunchModal = async function(usuario, nome, data) {
+  mgrPunchData = { usuario, nome, data, registros: [] };
+  mgrPunchSelecionado = null;
+  document.getElementById('mgr-punch-titulo').textContent = `Editar ponto — ${nome}`;
+  document.getElementById('mgr-punch-info').textContent = `Dia: ${formatDate(data)}`;
+  document.getElementById('mgr-punch-alterar').style.display = 'none';
+  document.getElementById('mgr-novo-tipo').value = '';
+  document.getElementById('mgr-novo-horario').value = '';
+  document.getElementById('mgr-punch-modal').style.display = 'flex';
+
+  // Load registros
+  const q = query(collection(db, 'registros'), where('usuario', '==', usuario), where('data', '==', data));
+  const snap = await getDocs(q);
+  mgrPunchData.registros = [];
+  snap.forEach(d => mgrPunchData.registros.push({ id: d.id, ...d.data() }));
+  mgrPunchData.registros.sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+  renderMgrPunchBatidas();
+};
+
+function renderMgrPunchBatidas() {
+  const el = document.getElementById('mgr-punch-batidas');
+  if (!mgrPunchData.registros.length) {
+    el.innerHTML = '<span style="color:#bbb;font-size:13px;">Nenhuma batida — use o botão + para adicionar</span>';
+    return;
+  }
+  el.innerHTML = mgrPunchData.registros.map((r, i) => `
+    <div onclick="selecionarMgrPunch(${i})" id="mgr-punch-row-${i}"
+      style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-bottom:1px solid #eee;cursor:pointer;border-radius:6px;">
+      <span class="${r.tipo==='entry'?'badge-type-in':'badge-type-out'}" style="font-weight:600;">${r.tipo==='entry'?'▶ Entrada':'■ Saída'}</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:#444;">${r.hora}</span>
+        <span style="font-size:11px;color:#f5a623;">✎</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.selecionarMgrPunch = function(idx) {
+  mgrPunchSelecionado = idx;
+  const r = mgrPunchData.registros[idx];
+  document.querySelectorAll('[id^="mgr-punch-row-"]').forEach(el => el.style.background = '');
+  document.getElementById(`mgr-punch-row-${idx}`).style.background = '#fff8e1';
+  document.getElementById('mgr-punch-alterar-label').textContent = `Alterar ${r.tipo==='entry'?'Entrada':'Saída'} das ${r.hora}:`;
+  document.getElementById('mgr-punch-novo-horario').value = r.hora.slice(0,5);
+  document.getElementById('mgr-punch-alterar').style.display = 'block';
+};
+
+window.aplicarAlteracaoMgr = async function() {
+  if (mgrPunchSelecionado === null) return;
+  const novoHorario = document.getElementById('mgr-punch-novo-horario').value;
+  if (!novoHorario) { showToast('Selecione o novo horário.', '#c0392b'); return; }
+
+  const reg = mgrPunchData.registros[mgrPunchSelecionado];
+  try {
+    await updateDoc(firestoreDoc(db, 'registros', reg.id), {
+      hora: novoHorario + ':00',
+      corrigido: true,
+      horaOriginal: reg.hora
+    });
+    showToast('Horário alterado!', '#2a1f1a');
+    // Refresh
+    const q = query(collection(db, 'registros'), where('usuario', '==', mgrPunchData.usuario), where('data', '==', mgrPunchData.data));
+    const snap = await getDocs(q);
+    mgrPunchData.registros = [];
+    snap.forEach(d => mgrPunchData.registros.push({ id: d.id, ...d.data() }));
+    mgrPunchData.registros.sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+    mgrPunchSelecionado = null;
+    document.getElementById('mgr-punch-alterar').style.display = 'none';
+    renderMgrPunchBatidas();
+    loadReport(); // refresh report
+  } catch(e) {
+    showToast('Erro ao alterar: ' + (e.code || e.message), '#c0392b');
+  }
+};
+
+window.adicionarPontoMgr = async function() {
+  const tipo = document.getElementById('mgr-novo-tipo').value;
+  const horario = document.getElementById('mgr-novo-horario').value;
+  if (!tipo || !horario) { showToast('Selecione tipo e horário.', '#c0392b'); return; }
+
+  try {
+    await addDoc(collection(db, 'registros'), {
+      usuario: mgrPunchData.usuario,
+      nome: mgrPunchData.nome,
+      data: mgrPunchData.data,
+      hora: horario + ':00',
+      tipo: tipo,
+      corrigido: true,
+      timestamp: Timestamp.fromDate(new Date(mgrPunchData.data + 'T' + horario))
+    });
+    showToast(`${tipo==='entry'?'Entrada':'Saída'} adicionada!`, '#2a1f1a');
+    document.getElementById('mgr-novo-tipo').value = '';
+    document.getElementById('mgr-novo-horario').value = '';
+    // Refresh
+    const q = query(collection(db, 'registros'), where('usuario', '==', mgrPunchData.usuario), where('data', '==', mgrPunchData.data));
+    const snap = await getDocs(q);
+    mgrPunchData.registros = [];
+    snap.forEach(d => mgrPunchData.registros.push({ id: d.id, ...d.data() }));
+    mgrPunchData.registros.sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+    renderMgrPunchBatidas();
+    loadReport();
+  } catch(e) {
+    showToast('Erro: ' + (e.code || e.message), '#c0392b');
+  }
+};
+
+window.fecharMgrPunchModal = function() {
+  document.getElementById('mgr-punch-modal').style.display = 'none';
+  mgrPunchData = null;
+  mgrPunchSelecionado = null;
 };
 
 
