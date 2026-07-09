@@ -807,6 +807,11 @@ td { padding: 10px 0; border-bottom: 1px solid #f8f5f2; color: #1a1209; }
                 <label>Usuário (login)</label>
                 <input type="text" id="cad-usuario" placeholder="ex: Lucas.Luchi">
               </div>
+              <div class="form-group" style="margin:0;grid-column:1 / -1;">
+                <label>E-mail (conta do Firebase)</label>
+                <input type="text" id="cad-email" placeholder="Deixe em branco para gerar usuario@olioli.app">
+                <p style="font-size:11px;color:#888;margin-top:4px;">Precisa ser exatamente igual ao e-mail cadastrado no Firebase Authentication.</p>
+              </div>
               <div class="form-group" style="margin:0;">
                 <label>Código</label>
                 <input type="text" id="cad-codigo" placeholder="ex: 78601">
@@ -929,9 +934,9 @@ td { padding: 10px 0; border-bottom: 1px solid #f8f5f2; color: #1a1209; }
             <label>Funcionário</label>
             <select id="mgr-emp-select" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:14px;color:#1a1a1a;background:#fff;outline:none;">
               <option value="">Selecione um funcionário</option>
-              <option value="erllany@olioli.app">Erllany Nienke</option>
-              <option value="lucas@olioli.app">Lucas Luchi</option>
-              <option value="rafael@olioli.app">Rafael Ferreira</option>
+              <option value="erllany.nienke@olioli.app">Erllany Nienke</option>
+              <option value="lucas.luchi@olioli.app">Lucas Luchi</option>
+              <option value="rafael.ferreira@olioli.app">Rafael Ferreira</option>
             </select>
           </div>
           <div class="form-group" style="margin-bottom:12px;">
@@ -1132,9 +1137,9 @@ const db = getFirestore(app);
 // USER MAP: username -> email (Firebase Auth usa email)
 const USER_MAP = {
   'gerente':          { email: 'gerente@olioli.app',         role: 'manager', name: 'Gerente' },
-  'erllany.nienke':   { email: 'erllany@olioli.app',         role: 'employee', name: 'Erllany Nienke' },
-  'lucas.luchi':      { email: 'lucas@olioli.app',           role: 'employee', name: 'Lucas Luchi' },
-  'rafael.ferreira':  { email: 'rafael@olioli.app',          role: 'employee', name: 'Rafael Ferreira' },
+  'erllany.nienke':   { email: 'erllany.nienke@olioli.app', role: 'employee', name: 'Erllany Nienke' },
+  'lucas.luchi':      { email: 'lucas.luchi@olioli.app',    role: 'employee', name: 'Lucas Luchi' },
+  'rafael.ferreira':  { email: 'rafael.ferreira@olioli.app', role: 'employee', name: 'Rafael Ferreira' },
 };
 
 currentUser = null;
@@ -1371,6 +1376,28 @@ function calcDetalhado(records) {
     normal: normalSec,
     noturno: noturnoSec
   };
+}
+
+// Todas as datas entre from e to (inclusive), formato YYYY-MM-DD
+function listarDias(from, to) {
+  const out = [];
+  const d = new Date(from + 'T12:00:00');
+  const fim = new Date(to + 'T12:00:00');
+  while (d <= fim) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+// Monta o timestamp real de uma batida, respeitando o corte das 05h.
+// Ex: dia de trabalho 03/07 com batida às 00:05 => instante real 04/07 00:05.
+function pontoTimestamp(data, hora) {
+  const hhmmss = hora.length === 5 ? hora + ':00' : hora;
+  const hh = parseInt(hhmmss.split(':')[0], 10);
+  const d = new Date(data + 'T' + hhmmss);
+  if (hh < 5) d.setDate(d.getDate() + 1);
+  return Timestamp.fromDate(d);
 }
 
 function calcHorasTrabalhadas(records) {
@@ -1899,28 +1926,42 @@ window._loadReport = async function() {
     return a.timestamp.seconds - b.timestamp.seconds;
   });
 
-  if (!reportData.length) {
-    result.innerHTML = `<div class="loading">Nenhum registro encontrado.</div>`;
+  if (!from || !to || from > to) {
+    result.innerHTML = `<div class="loading">Selecione um período válido.</div>`;
     return;
   }
 
-  // Group by employee then by day
+  // Começa com todos os funcionários do filtro, mesmo sem nenhuma batida
+  const listaFuncs = (await getEmployeeList())
+    .filter(f => empFilter === 'all' || f.usuario === empFilter);
+
+  if (!listaFuncs.length) {
+    result.innerHTML = `<div class="loading">Nenhum funcionário encontrado.</div>`;
+    return;
+  }
+
   const byEmp = {};
+  listaFuncs.forEach(f => { byEmp[f.usuario] = { nome: f.nome, days: {} }; });
   reportData.forEach(r => {
     if (!byEmp[r.usuario]) byEmp[r.usuario] = { nome: r.nome, days: {} };
     if (!byEmp[r.usuario].days[r.data]) byEmp[r.usuario].days[r.data] = [];
     byEmp[r.usuario].days[r.data].push(r);
   });
 
+  const todosDias = listarDias(from, to);
   let html = '';
 
   for (const [usuario, empData] of Object.entries(byEmp)) {
-    const sortedDays = Object.keys(empData.days).sort();
+    const sortedDays = todosDias;
+    const diasComPonto = Object.keys(empData.days).length;
     let empTotalSec = 0, empNormalSec = 0, empNoturnoSec = 0;
 
     const rows = sortedDays.map(data => {
-      const recs = empData.days[data].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
-      const marcacoes = recs.length ? recs.map(r => r.hora.slice(0,5)).join('  ') : '—';
+      const recs = (empData.days[data] || []).sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+      const semPonto = recs.length === 0;
+      const marcacoes = semPonto
+        ? '<span style="color:#bbb;">sem registro</span>'
+        : recs.map(r => r.hora.slice(0,5)).join('  ');
       const det = calcDetalhado(recs);
       empTotalSec += det.total;
       empNormalSec += det.normal;
@@ -1933,12 +1974,18 @@ window._loadReport = async function() {
 
       const [y, m, d] = data.split('-');
       const diasSemana = ['dom','seg','ter','qua','qui','sex','sáb'];
-      const diaSem = diasSemana[new Date(data + 'T12:00:00').getDay()];
+      const diaNum = new Date(data + 'T12:00:00').getDay();
+      const diaSem = diasSemana[diaNum];
+      const folga = diaNum === 0 || diaNum === 1;
 
-      return `<tr style="${impar ? 'background:#fff8e1;' : ''}">
+      const bg = impar ? 'background:#fff8e1;'
+               : (semPonto && !folga) ? 'background:#fdf3f4;'
+               : folga ? 'background:#fafafa;' : '';
+
+      return `<tr style="${bg}">
         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;white-space:nowrap;">
           <strong style="font-size:14px;">${d}/${m}</strong>
-          <span style="font-size:11px;color:#888;display:block;">${diaSem}</span>
+          <span style="font-size:11px;color:#888;display:block;">${diaSem}${folga ? ' · folga' : ''}</span>
         </td>
         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-size:13px;color:#2a1f1a;letter-spacing:1px;">
           ${impar ? `<span style="color:#e65100;">⚠ </span>` : ''}${marcacoes}
@@ -1947,7 +1994,7 @@ window._loadReport = async function() {
         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;line-height:1.8;text-align:right;">
           ${normalStr ? `<div style="color:#444;">Diurno: <strong>${normalStr}</strong></div>` : ''}
           ${noturnoStr ? `<div style="color:#e65100;">Noturno: <strong>${noturnoStr}</strong></div>` : ''}
-          <div style="color:#2a1f1a;font-weight:600;">Total: ${totalStr}</div>
+          <div style="color:#2a1f1a;font-weight:600;">Total: ${semPonto ? '—' : totalStr}</div>
         </td>
       </tr>`;
     }).join('');
@@ -1962,7 +2009,7 @@ window._loadReport = async function() {
           <div class="avatar" style="width:36px;height:36px;font-size:13px;">${initials(empData.nome)}</div>
           <div style="flex:1;">
             <div style="font-size:15px;font-weight:600;color:#1a1a1a;">${empData.nome}</div>
-            <div style="font-size:12px;color:#888;">${sortedDays.length} dias trabalhados</div>
+            <div style="font-size:12px;color:#888;">${diasComPonto} dia(s) com registro · ${sortedDays.length} dia(s) no período</div>
           </div>
           <div style="text-align:right;font-size:12px;line-height:1.8;">
             <div style="color:#444;">Diurno: <strong>${normalEmpStr}</strong></div>
@@ -2090,12 +2137,6 @@ window._mgrResetPassword = async function() {
 
 
 // ---- GERENCIAR FUNCIONÁRIOS ----
-const EMPLOYEE_LIST = [
-  { nome: 'Erllany Nienke', usuario: 'Erllany.Nienke', email: 'erllany@olioli.app' },
-  { nome: 'Lucas Luchi', usuario: 'Lucas.Luchi', email: 'lucas@olioli.app' },
-  { nome: 'Rafael Ferreira', usuario: 'Rafael.Ferreira', email: 'rafael@olioli.app' },
-];
-
 function nomeParaUsuario(nome) {
   const partes = nome.trim().split(/\s+/);
   if (partes.length < 2) return '';
@@ -2389,6 +2430,7 @@ window._responderSolicitacao = async function(id, status) {
           if (d.hora && d.hora.slice(0,5) === alt.horaOriginal.slice(0,5)) {
             await updateDoc(firestoreDoc(db, 'registros', docReg.id), {
               hora: horaCorreta,
+              timestamp: pontoTimestamp(solData.data, horaCorreta),
               corrigido: true,
               horaOriginal: alt.horaOriginal
             });
@@ -2410,7 +2452,7 @@ window._responderSolicitacao = async function(id, status) {
             hora: horaAdd,
             tipo: add.tipo,
             corrigido: true,
-            timestamp: Timestamp.fromDate(new Date(solData.data + 'T' + add.horario))
+            timestamp: pontoTimestamp(solData.data, add.horario)
           });
         }
       }
@@ -2590,6 +2632,7 @@ window.aplicarAlteracaoMgr = async function() {
   try {
     await updateDoc(firestoreDoc(db, 'registros', reg.id), {
       hora: novoHorario + ':00',
+      timestamp: pontoTimestamp(mgrPunchData.data, novoHorario),
       corrigido: true,
       horaOriginal: reg.hora
     });
@@ -2622,7 +2665,7 @@ window.adicionarPontoMgr = async function() {
       hora: horario + ':00',
       tipo: tipo,
       corrigido: true,
-      timestamp: Timestamp.fromDate(new Date(mgrPunchData.data + 'T' + horario))
+      timestamp: pontoTimestamp(mgrPunchData.data, horario)
     });
     showToast(`${tipo==='entry'?'Entrada':'Saída'} adicionada!`, '#2a1f1a');
     document.getElementById('mgr-novo-tipo').value = '';
@@ -2766,6 +2809,7 @@ window._editarCadastroAtual = async function() {
     const f = snap.data();
     document.getElementById('cad-nome').value = f.nome || '';
     document.getElementById('cad-usuario').value = f.usuario || '';
+    document.getElementById('cad-email').value = f.email || '';
     document.getElementById('cad-codigo').value = f.codigo || '';
     document.getElementById('cad-matricula').value = f.matricula || '';
     document.getElementById('cad-funcao').value = f.funcao || '';
@@ -2948,7 +2992,7 @@ window._gerarFolhaPDFAtual = function() {
 };
 
 function limparFormCadastro() {
-  ['cad-nome','cad-usuario','cad-codigo','cad-matricula','cad-funcao','cad-admissao','cad-ctps','cad-cpf','cad-senha'].forEach(id => {
+  ['cad-nome','cad-usuario','cad-email','cad-codigo','cad-matricula','cad-funcao','cad-admissao','cad-ctps','cad-cpf','cad-senha'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -2974,7 +3018,8 @@ window._salvarCadastro = async function() {
   errEl.textContent = '';
 
   const usuarioLower = usuario.toLowerCase();
-  const email = `${usuarioLower}@olioli.app`;
+  const emailInput = document.getElementById('cad-email').value.trim().toLowerCase();
+  const email = emailInput || `${usuarioLower}@olioli.app`;
 
   const dados = {
     nome,
