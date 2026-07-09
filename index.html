@@ -832,15 +832,41 @@ td { padding: 10px 0; border-bottom: 1px solid #f8f5f2; color: #1a1209; }
                 <input type="text" id="cad-cpf" placeholder="ex: 126.087.617-98">
               </div>
             </div>
+
+            <div id="cad-senha-wrap" class="form-group" style="margin:0 0 12px 0;">
+              <label>Senha inicial (apenas para novos)</label>
+              <div style="position:relative;">
+                <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres" style="padding-right:48px;">
+                <button type="button" onclick="toggleField('cad-senha','cad-senha-eye')" id="cad-senha-eye" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#888;font-size:13px;padding:0;">👁</button>
+              </div>
+            </div>
+
             <button class="btn-primary" onclick="salvarCadastro()" style="background:#F07820;">Salvar</button>
             <div class="error-msg" id="cad-error"></div>
+          </div>
+
+          <div id="cad-instrucoes" class="records-card" style="display:none;border-left:3px solid #F07820;margin-top:12px;">
+            <p style="font-size:13px;font-weight:600;color:#2a1f1a;margin-bottom:10px;">✅ Colaborador salvo. Agora crie o login:</p>
+            <div style="font-size:13px;color:#444;line-height:2;">
+              <p>1. Abra o <a href="https://console.firebase.google.com/project/ponto-olioli/authentication/users" target="_blank" style="color:#F07820;font-weight:600;">Firebase Authentication ↗</a></p>
+              <p>2. Clique em <strong>Add user</strong> e cole:</p>
+            </div>
+            <div style="background:#f9f9f9;border-radius:10px;padding:12px;margin:10px 0;">
+              <div style="font-size:12px;color:#888;">E-mail</div>
+              <div id="cad-prev-email" style="font-size:15px;font-weight:600;color:#2a1f1a;word-break:break-all;"></div>
+              <div style="font-size:12px;color:#888;margin-top:10px;">Senha</div>
+              <div id="cad-prev-senha" style="font-size:15px;font-weight:600;color:#2a1f1a;"></div>
+              <div style="font-size:12px;color:#888;margin-top:10px;">Login no app</div>
+              <div id="cad-prev-usuario" style="font-size:15px;font-weight:600;color:#2a1f1a;"></div>
+            </div>
+            <button onclick="voltarListaCadastro()" style="width:100%;padding:12px;background:#2a1f1a;color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;">Concluir</button>
           </div>
         </div>
 
       </div>
     </div>
 
-    <div id="mgr-tab-funcionarios" <div="" style="flex:1; overflow-y:auto; display:none; width:100%;">
+    <div id="mgr-tab-funcionarios" style="flex:1; overflow-y:auto; display:none; width:100%;">
       <div class="app-body">
         <p class="section-title">Equipe</p>
 
@@ -1190,15 +1216,17 @@ window._doLogout = async function() {
 
 
 async function loadUserMapFromFirestore() {
-  try {
-    const snap = await getDocs(collection(db, 'funcionarios'));
-    snap.forEach(d => {
-      const f = d.data();
-      if (f.ativo !== false && f.usuario && f.email) {
-        USER_MAP[f.usuario.toLowerCase()] = { email: f.email, role: 'employee', name: f.nome };
-      }
-    });
-  } catch(e) { console.error('loadUserMap error:', e); }
+  for (const col of ['funcionarios', 'cadastros']) {
+    try {
+      const snap = await getDocs(collection(db, col));
+      snap.forEach(d => {
+        const f = d.data();
+        if (f.ativo !== false && f.usuario && f.email) {
+          USER_MAP[f.usuario.toLowerCase()] = { email: f.email, role: 'employee', name: f.nome };
+        }
+      });
+    } catch(e) { console.error('loadUserMap error (' + col + '):', e); }
+  }
 }
 
 // Lista dinâmica de funcionários (fixos + cadastrados no Firestore)
@@ -2692,18 +2720,18 @@ function showCadastroView(view) {
 window._mostrarFormCadastro = function(editId) {
   cadastroEditId = editId || null;
   document.getElementById('form-cad-titulo').textContent = editId ? 'Editar colaborador' : 'Novo colaborador';
-  if (!editId) {
-    ['cad-nome','cad-usuario','cad-codigo','cad-matricula','cad-funcao','cad-admissao','cad-ctps','cad-cpf'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-  }
+  document.getElementById('cad-instrucoes').style.display = 'none';
+  document.getElementById('cad-senha-wrap').style.display = editId ? 'none' : 'block';
+  document.getElementById('cad-error').textContent = '';
+  if (!editId) limparFormCadastro();
   showCadastroView('form');
 };
 
 window._voltarListaCadastro = function() {
   cadastroEditId = null;
   cadastroAtualId = null;
+  const instr = document.getElementById('cad-instrucoes');
+  if (instr) instr.style.display = 'none';
   showCadastroView('lista');
   loadCadastros();
 };
@@ -2742,6 +2770,9 @@ window._editarCadastroAtual = async function() {
     document.getElementById('cad-ctps').value = f.ctps || '';
     document.getElementById('cad-cpf').value = f.cpf || '';
     cadastroEditId = cadastroAtualId;
+    document.getElementById('cad-senha-wrap').style.display = 'none';
+    document.getElementById('cad-instrucoes').style.display = 'none';
+    document.getElementById('cad-error').textContent = '';
     document.getElementById('form-cad-titulo').textContent = 'Editar colaborador';
     showCadastroView('form');
   } catch(e) { showToast('Erro ao carregar dados.', '#c0392b'); }
@@ -2913,19 +2944,40 @@ window._gerarFolhaPDFAtual = function() {
   if (cadastroAtualId) window._gerarFolhaPDF(cadastroAtualId);
 };
 
+function limparFormCadastro() {
+  ['cad-nome','cad-usuario','cad-codigo','cad-matricula','cad-funcao','cad-admissao','cad-ctps','cad-cpf','cad-senha'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
 window._salvarCadastro = async function() {
   const nome = document.getElementById('cad-nome').value.trim();
-  const usuario = document.getElementById('cad-usuario').value.trim();
+  let usuario = document.getElementById('cad-usuario').value.trim();
+  const senha = document.getElementById('cad-senha').value;
   const errEl = document.getElementById('cad-error');
-  if (!nome || !usuario) {
-    errEl.textContent = 'Nome e usuário são obrigatórios.';
+
+  if (!nome) { errEl.textContent = 'O nome completo é obrigatório.'; return; }
+
+  // Se não informou o usuário, gera a partir do nome (Primeiro.Ultimo)
+  if (!usuario) usuario = nomeParaUsuario(nome);
+  if (!usuario) { errEl.textContent = 'Informe o nome completo (nome e sobrenome).'; return; }
+
+  const novo = !cadastroEditId;
+  if (novo && (!senha || senha.length < 6)) {
+    errEl.textContent = 'Defina uma senha inicial de pelo menos 6 caracteres.';
     return;
   }
   errEl.textContent = '';
 
+  const usuarioLower = usuario.toLowerCase();
+  const email = `${usuarioLower}@olioli.app`;
+
   const dados = {
     nome,
-    usuario: usuario.toLowerCase(),
+    usuario: usuarioLower,
+    email,
+    ativo: true,
     codigo: document.getElementById('cad-codigo').value.trim(),
     matricula: document.getElementById('cad-matricula').value.trim(),
     funcao: document.getElementById('cad-funcao').value.trim(),
@@ -2940,17 +2992,25 @@ window._salvarCadastro = async function() {
       await updateDoc(firestoreDoc(db, 'cadastros', cadastroEditId), dados);
       showToast('Cadastro atualizado!', '#2a1f1a');
       cadastroEditId = null;
-    } else {
-      await addDoc(collection(db, 'cadastros'), dados);
-      showToast('Colaborador cadastrado!', '#2a1f1a');
+      limparFormCadastro();
+      await loadCadastros();
+      showCadastroView('lista');
+      return;
     }
-    ['cad-nome','cad-usuario','cad-codigo','cad-matricula','cad-funcao','cad-admissao','cad-ctps','cad-cpf'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
+
+    await addDoc(collection(db, 'cadastros'), dados);
+    USER_MAP[usuarioLower] = { email, role: 'employee', name: nome };
+    showToast('Colaborador cadastrado!', '#2a1f1a');
+
+    // Mostra as instruções do Firebase com e-mail/senha/login
+    document.getElementById('cad-prev-email').textContent = email;
+    document.getElementById('cad-prev-senha').textContent = senha;
+    document.getElementById('cad-prev-usuario').textContent = usuario;
+    document.getElementById('cad-instrucoes').style.display = 'block';
+    document.getElementById('cad-instrucoes').scrollIntoView({ behavior: 'smooth' });
+
+    limparFormCadastro();
     await loadCadastros();
-    showCadastroView('lista');
-    cadastroEditId = null;
   } catch(e) {
     console.error('salvarCadastro error:', e);
     errEl.textContent = 'Erro ao salvar: ' + (e.code || e.message);
