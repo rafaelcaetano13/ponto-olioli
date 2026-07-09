@@ -1169,11 +1169,14 @@ window._doLogin = async function() {
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
 
+  if (!userInput || !passInput) { errEl.textContent = 'Preencha usuário e senha.'; return; }
+
+  // Se o usuário não está na lista fixa, assume o padrão usuario@olioli.app
   const userData = USER_MAP[userInput];
-  if (!userData) { errEl.textContent = 'Usuário não encontrado.'; return; }
+  const email = userData ? userData.email : `${userInput}@olioli.app`;
 
   try {
-    await signInWithEmailAndPassword(auth, userData.email, passInput);
+    await signInWithEmailAndPassword(auth, email, passInput);
   } catch(e) {
     errEl.textContent = 'Usuário ou senha incorretos.';
   }
@@ -1191,11 +1194,39 @@ async function loadUserMapFromFirestore() {
     const snap = await getDocs(collection(db, 'funcionarios'));
     snap.forEach(d => {
       const f = d.data();
-      if (f.ativo && f.usuario && f.email) {
+      if (f.ativo !== false && f.usuario && f.email) {
         USER_MAP[f.usuario.toLowerCase()] = { email: f.email, role: 'employee', name: f.nome };
       }
     });
   } catch(e) { console.error('loadUserMap error:', e); }
+}
+
+// Lista dinâmica de funcionários (fixos + cadastrados no Firestore)
+async function getEmployeeList() {
+  await loadUserMapFromFirestore();
+  return Object.entries(USER_MAP)
+    .filter(([u, d]) => d.role === 'employee')
+    .map(([u, d]) => ({ usuario: u, nome: d.name, email: d.email }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+// Preenche os <select> do gerente com todos os funcionários
+async function popularSelectsFuncionarios() {
+  const lista = await getEmployeeList();
+
+  const filtro = document.getElementById('filter-emp');
+  if (filtro) {
+    const atual = filtro.value;
+    filtro.innerHTML = '<option value="all">Todos</option>' +
+      lista.map(f => `<option value="${f.usuario}">${f.nome}</option>`).join('');
+    if (atual) filtro.value = atual;
+  }
+
+  const senhaSel = document.getElementById('mgr-emp-select');
+  if (senhaSel) {
+    senhaSel.innerHTML = '<option value="">Selecione um funcionário</option>' +
+      lista.map(f => `<option value="${f.email}">${f.nome}</option>`).join('');
+  }
 }
 
 // ---- AUTH STATE ----
@@ -1215,14 +1246,26 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   currentUser = user;
-  const userData = Object.values(USER_MAP).find(u => u.email === user.email);
+  let userData = Object.values(USER_MAP).find(u => u.email === user.email);
+
+  // Funcionário novo: ainda não está no USER_MAP, busca no Firestore
+  if (!userData) {
+    await loadUserMapFromFirestore();
+    userData = Object.values(USER_MAP).find(u => u.email === user.email);
+  }
+  // Último recurso: monta a partir do próprio e-mail para não travar o app
+  if (!userData) {
+    const login = user.email.split('@')[0].toLowerCase();
+    userData = { email: user.email, role: 'employee', name: login };
+    USER_MAP[login] = userData;
+  }
   currentUserData = userData;
 
   if (userData.role === 'manager') {
     showScreen('screen-manager');
+    popularSelectsFuncionarios();
     loadTodayAll();
     setDefaultDates();
-    loadUserMapFromFirestore();
   } else {
     document.getElementById('emp-header-name').textContent = userData.name;
     showScreen('screen-employee');
@@ -1726,12 +1769,14 @@ window._toggleField = function(inputId, btnId) {
 // ---- MANAGER: TODAY ----
 unsubscribeTodayAll = null;
 
-function loadTodayAll() {
+async function loadTodayAll() {
   const today = todayStr();
   const container = document.getElementById('mgr-today-list');
   container.innerHTML = `<div class="loading">Carregando...</div>`;
 
   if (unsubscribeTodayAll) unsubscribeTodayAll();
+
+  const listaFuncs = await getEmployeeList();
 
   const q = query(
     collection(db, 'registros'),
@@ -1747,12 +1792,15 @@ function loadTodayAll() {
     });
     Object.values(byUser).forEach(u => u.records.sort((a,b) => a.timestamp.seconds - b.timestamp.seconds));
 
-    const employees = ['erllany.nienke', 'lucas.luchi', 'rafael.ferreira'];
-    const names = { 'erllany.nienke': 'Erllany Nienke', 'lucas.luchi': 'Lucas Luchi', 'rafael.ferreira': 'Rafael Ferreira' };
+    if (!listaFuncs.length) {
+      container.innerHTML = '<div class="loading">Nenhum funcionário cadastrado.</div>';
+      return;
+    }
 
-    container.innerHTML = employees.map(emp => {
+    container.innerHTML = listaFuncs.map(f => {
+      const emp = f.usuario;
       const data = byUser[emp];
-      const nome = names[emp];
+      const nome = f.nome;
       const records = data ? data.records : [];
       const last = records.length ? records[records.length-1] : null;
       const statusHtml = !last
