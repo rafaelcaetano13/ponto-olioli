@@ -1234,6 +1234,21 @@ async function loadUserMapFromFirestore() {
   }
 }
 
+// Funcionário comum: carrega apenas o próprio cadastro (não lê a coleção inteira)
+async function carregarMeuPerfil(email) {
+  for (const col of ['cadastros', 'funcionarios']) {
+    try {
+      const snap = await getDocs(query(collection(db, col), where('email', '==', email)));
+      snap.forEach(d => {
+        const f = d.data();
+        if (f.usuario) {
+          USER_MAP[f.usuario.toLowerCase()] = { email: f.email, role: 'employee', name: f.nome };
+        }
+      });
+    } catch(e) { console.warn('carregarMeuPerfil (' + col + '):', e.code || e.message); }
+  }
+}
+
 // Lista dinâmica de funcionários (fixos + cadastrados no Firestore)
 async function getEmployeeList() {
   await loadUserMapFromFirestore();
@@ -1281,9 +1296,9 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   let userData = Object.values(USER_MAP).find(u => u.email === user.email);
 
-  // Funcionário novo: ainda não está no USER_MAP, busca no Firestore
+  // Funcionário novo: ainda não está no USER_MAP, busca só o próprio cadastro
   if (!userData) {
-    await loadUserMapFromFirestore();
+    await carregarMeuPerfil(user.email);
     userData = Object.values(USER_MAP).find(u => u.email === user.email);
   }
   // Último recurso: monta a partir do próprio e-mail para não travar o app
