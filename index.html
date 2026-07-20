@@ -585,7 +585,7 @@
 
     .mesa-heatmap {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
       gap: 10px;
       margin-top: 10px;
     }
@@ -601,7 +601,8 @@
     }
     .mesa-cell:hover { transform: scale(1.05); }
     .mesa-cell .mesa-num { font-size: 13px; opacity: 0.9; }
-    .mesa-cell .mesa-valor { font-size: 12px; margin-top: 4px; font-weight: 600; }
+    .mesa-cell .mesa-valor { font-size: 13px; margin-top: 4px; font-weight: 700; }
+    .mesa-cell .mesa-ticket { font-size: 10.5px; margin-top: 2px; font-weight: 500; opacity: 0.9; }
     .mesa-heatmap-empty { padding: 12px; font-size: 13px; color: #9e8d7e; }
 
     .dia-hora-heatmap {
@@ -1098,21 +1099,13 @@
 
           <div class="charts-grid" style="grid-template-columns: 1fr; margin-top: 1.5rem;">
             <div class="chart-card">
-              <div class="chart-title">Mapa de Mesas — Faturamento</div>
+              <div class="chart-title">Mapa de Mesas — Faturamento e Ticket Médio</div>
               <div id="mesaHeatmap" class="mesa-heatmap"></div>
-              <small style="color: #9e8d7e; font-size: 12px;">💡 Cor mais intensa = maior faturamento</small>
+              <small style="color: #9e8d7e; font-size: 12px;">💡 Cor mais intensa = maior faturamento. O valor menor em cada quadrado é o ticket médio por comanda.</small>
             </div>
           </div>
 
-          <div class="charts-grid" style="margin-top: 1.5rem;">
-            <div class="chart-card">
-              <div class="chart-title">Ticket Médio por Mesa</div>
-              <div class="canvas-container">
-                <canvas id="ticketMesaChart"></canvas>
-              </div>
-              <small style="color: #9e8d7e; font-size: 12px;">💡 Valor médio gasto por comanda em cada mesa</small>
-            </div>
-
+          <div class="charts-grid" style="grid-template-columns: 1fr; margin-top: 1.5rem;">
             <div class="chart-card">
               <div class="chart-title">Desempenho por Garçom</div>
               <div class="canvas-container">
@@ -1302,7 +1295,6 @@
     let categoriaOverrides = {}; // produto -> categoria, carregado do Firestore (cadastro de itens)
     let pieChart = null;
     let monthlyChart = null;
-    let ticketMesaChart = null;
     let garcomStackedChart = null;
 
     // TABELA DE CATEGORIAS (referência: "Planilha ano.csv" - PROD.VEND.POR CLASSE/CENTRO DE CUSTO)
@@ -1910,11 +1902,27 @@
       const container = document.getElementById('mesaHeatmap');
       if (!container) return;
 
+      // Faturamento por mesa
       const totaisPorMesa = {};
       products.forEach(p => {
         if (!p.mesa) return;
         if (!totaisPorMesa[p.mesa]) totaisPorMesa[p.mesa] = 0;
         totaisPorMesa[p.mesa] += p.value;
+      });
+
+      // Ticket médio por mesa (agrupando por mesa+comanda+data para reconstruir cada conta fechada)
+      const comandas = {};
+      products.forEach(p => {
+        if (!p.mesa) return;
+        const key = `${p.mesa}|${p.comanda}|${p.data}`;
+        if (!comandas[key]) comandas[key] = { mesa: p.mesa, total: 0 };
+        comandas[key].total += p.value;
+      });
+      const ticketPorMesa = {};
+      Object.values(comandas).forEach(c => {
+        if (!ticketPorMesa[c.mesa]) ticketPorMesa[c.mesa] = { soma: 0, count: 0 };
+        ticketPorMesa[c.mesa].soma += c.total;
+        ticketPorMesa[c.mesa].count += 1;
       });
 
       const mesasOrdenadas = Object.keys(totaisPorMesa).sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
@@ -1944,9 +1952,12 @@
       container.innerHTML = mesasOrdenadas.map(m => {
         const valor = Math.round(totaisPorMesa[m] * 100) / 100;
         const cor = corPorValor(valor);
-        return `<div class="mesa-cell" style="background:${cor}" title="Mesa ${m}: R$ ${valor.toLocaleString('pt-BR')}" onclick="filterByMesa('${m}')">
+        const tk = ticketPorMesa[m];
+        const ticketMedio = tk && tk.count > 0 ? Math.round((tk.soma / tk.count) * 100) / 100 : 0;
+        return `<div class="mesa-cell" style="background:${cor}" title="Mesa ${m}: R$ ${valor.toLocaleString('pt-BR')} · Ticket médio: R$ ${ticketMedio.toLocaleString('pt-BR')}" onclick="filterByMesa('${m}')">
           <div class="mesa-num">Mesa ${m}</div>
           <div class="mesa-valor">R$ ${valor.toLocaleString('pt-BR')}</div>
+          <div class="mesa-ticket">Ticket: R$ ${ticketMedio.toLocaleString('pt-BR')}</div>
         </div>`;
       }).join('');
     }
@@ -1957,64 +1968,6 @@
       applyFilters();
     }
 
-    // TICKET MÉDIO POR MESA
-    function renderTicketMedioPorMesa(products) {
-      const el = document.getElementById('ticketMesaChart');
-      if (!el) return;
-
-      // Agrupa por "comanda" (mesa + comanda + data) para reconstruir o valor de cada conta fechada
-      const comandas = {};
-      products.forEach(p => {
-        if (!p.mesa) return;
-        const key = `${p.mesa}|${p.comanda}|${p.data}`;
-        if (!comandas[key]) comandas[key] = { mesa: p.mesa, total: 0 };
-        comandas[key].total += p.value;
-      });
-
-      const porMesa = {};
-      Object.values(comandas).forEach(c => {
-        if (!porMesa[c.mesa]) porMesa[c.mesa] = { soma: 0, count: 0 };
-        porMesa[c.mesa].soma += c.total;
-        porMesa[c.mesa].count += 1;
-      });
-
-      const mesasOrdenadas = Object.keys(porMesa).sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
-      const ticketMedios = mesasOrdenadas.map(m => Math.round((porMesa[m].soma / porMesa[m].count) * 100) / 100);
-
-      if (ticketMesaChart) ticketMesaChart.destroy();
-      if (mesasOrdenadas.length === 0) return;
-
-      ticketMesaChart = new Chart(el.getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels: mesasOrdenadas.map(m => `Mesa ${m}`),
-          datasets: [{
-            label: 'Ticket Médio (R$)', data: ticketMedios,
-            backgroundColor: '#2E7D32', borderColor: '#2E7D32', borderWidth: 0,
-            borderRadius: 6, maxBarThickness: 40
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            datalabels: {
-              anchor: 'end', align: 'end', clamp: true, color: '#1a1209',
-              font: { weight: 'bold', size: 10 }, offset: 4,
-              formatter: (value) => 'R$ ' + value.toLocaleString('pt-BR')
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: { callback: (v) => 'R$ ' + v.toLocaleString('pt-BR') },
-              max: Math.max(...ticketMedios) * 1.25
-            }
-          }
-        },
-        plugins: [ChartDataLabels]
-      });
-    }
 
     // DESEMPENHO POR GARÇOM (ticket médio implícito + mix de categorias empilhado)
     function renderDesempenhoGarcom(products) {
@@ -2559,9 +2512,6 @@
 
       // MAPA DE MESAS (heatmap de faturamento por mesa)
       renderMesaHeatmap(data.products);
-
-      // TICKET MÉDIO POR MESA
-      renderTicketMedioPorMesa(data.products);
 
       // DESEMPENHO POR GARÇOM (mix de categorias)
       renderDesempenhoGarcom(data.products);
